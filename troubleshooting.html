@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Troubleshooting · Private DNS Guide</title>
+<meta name="description" content="Fixes for common macOS DNS problems: profile install failed, 0 network after changing DNS, telling a DNS block from an IP block, and more.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="site">
+  <nav class="nav">
+    <a class="brand" href="index.html"><span class="dot"></span> Private DNS Guide</a>
+    <div class="links">
+      <a href="index.html">Home</a>
+      <a href="mac.html">Setup Guide</a>
+      <a href="troubleshooting.html" class="active">Troubleshooting</a>
+      <button class="themebtn" onclick="toggleTheme()" aria-label="Toggle dark mode">◐</button>
+    </div>
+  </nav>
+</header>
+
+<main>
+  <div class="kicker">macOS</div>
+  <h1>Troubleshooting &amp; common problems</h1>
+  <p class="lead">Click any problem to expand the fix. Most issues come down to one of two things: a VPN app getting in the way, or a network that blocks plain DNS.</p>
+
+  <div class="callout info">
+    <div class="t">🩺 Run the diagnostic first</div>
+    <p style="margin:.3em 0 0">Not sure what’s wrong? This script checks everything at once — whether plain DNS is blocked, whether encrypted DNS gets through, and whether a site is blocked by DNS or by IP. It’s safe and read-only (it just resets your DNS to automatic so you keep a connection while testing).</p>
+    <p style="margin:.6em 0 0"><a class="dl" href="assets/files/dns-diagnostic.sh" download>⬇︎ Download dns-diagnostic.sh</a></p>
+    <p style="margin:.4em 0 0">Run it on the problem network:</p>
+    <pre><code>zsh ~/Downloads/dns-diagnostic.sh</code></pre>
+  </div>
+
+  <h2>Common problems</h2>
+
+  <details id="vpn-service">
+    <summary>“Profile installation failed — the ‘VPN Service’ payload could not be created”</summary>
+    <p><strong>Cause:</strong> You have a VPN app (like ExpressVPN, NordVPN, etc.) installed. macOS lets only one “VPN service” exist, and the DNS profile needs that slot. Even when the VPN is <em>disconnected</em>, its background service keeps the slot reserved.</p>
+    <p><strong>Fix:</strong> Skip the profile and use <a href="mac.html#method2">Method 2 (dnscrypt-proxy)</a> instead — it doesn’t create a VPN service, so it works alongside any VPN. If you don’t need the VPN app at all, fully quitting/uninstalling it will also let the profile install.</p>
+  </details>
+
+  <details>
+    <summary>The downloaded profile shows a red “Error”</summary>
+    <p><strong>Cause:</strong> The file didn’t download correctly (often it’s a tiny “404 Not Found” page instead of the real profile).</p>
+    <p><strong>Fix:</strong> Select the errored profile in <strong>System Settings → General → VPN &amp; Device Management</strong> and remove it with <strong>–</strong>. Then re-download the <a href="mac.html#method1">profile</a> and open it again. You can confirm a good download in Terminal:</p>
+    <pre><code>plutil -lint ~/Downloads/Private-DNS-Cloudflare.mobileconfig</code></pre>
+    <p>It should say <code>OK</code>. If it says the file is tiny or invalid, the download failed.</p>
+  </details>
+
+  <details id="zero-network">
+    <summary>I changed my DNS and now I have ZERO network / nothing loads</summary>
+    <p>This is the most common one. There are three usual causes:</p>
+    <p><strong>1. You set a plain DNS like <code>8.8.8.8</code> or <code>9.9.9.9</code> on a network that blocks port 53.</strong> Many restrictive networks block outside DNS, so your Mac can’t reach that server and every lookup fails. Fix: use <em>encrypted</em> DNS (the whole point of this guide) instead of a plain DNS IP. To recover right now, reset DNS to automatic:</p>
+    <pre><code>networksetup -setdnsservers "Wi-Fi" "Empty"</code></pre>
+    <p><strong>2. Your local resolver isn’t actually running</strong> (Method 2). If your DNS points at <code>127.0.0.1</code> but nothing is listening there, everything breaks. Check it:</p>
+    <pre><code>sudo brew services list | grep dnscrypt
+dig @127.0.0.1 example.com +short</code></pre>
+    <p>If the second command returns nothing, start the service: <code>sudo brew services start dnscrypt-proxy</code></p>
+    <p><strong>3. You set DNS on the wrong network interface.</strong> If you’re on Ethernet/a dock but set DNS on “Wi-Fi” (or vice-versa), it won’t take effect. Find your active interface and its service name:</p>
+    <pre><code>route -n get default | grep interface
+networksetup -listallnetworkservices</code></pre>
+    <p>Then set DNS on the service you’re actually using.</p>
+  </details>
+
+  <details id="dns-vs-ip">
+    <summary>How do I know if a site is blocked by DNS (fixable) or by IP (needs a VPN)?</summary>
+    <p>This decides whether this guide can help at all.</p>
+    <ul>
+      <li><strong>DNS block (fixable here):</strong> the network’s DNS gives a fake/“block-page” address for the site. Encrypted DNS returns the real address and the site loads.</li>
+      <li><strong>IP / firewall block (NOT fixable with DNS):</strong> even with the correct address, the network refuses the connection to the site’s servers. Only a VPN can bypass this.</li>
+    </ul>
+    <p><strong>Quick test:</strong> if the site loads on a VPN but not otherwise, and normal websites still work — it’s very likely a DNS block, and this guide will fix it. For a definitive answer, run the <a href="#" onclick="document.querySelector('.callout.info .dl').scrollIntoView({behavior:'smooth'});return false;">diagnostic script</a> above — it literally tells you <em>“DNS fix will work”</em> or <em>“needs a VPN”</em> for the site you test.</p>
+  </details>
+
+  <details>
+    <summary>“brew: Could not resolve host” when installing</summary>
+    <p><strong>Cause:</strong> Your DNS is currently broken (e.g. still set to a blocked plain DNS), so Homebrew can’t download anything.</p>
+    <p><strong>Fix:</strong> Reset DNS to automatic first so you have a working connection, then install:</p>
+    <pre><code>networksetup -setdnsservers "Wi-Fi" "Empty"
+brew install dnscrypt-proxy</code></pre>
+  </details>
+
+  <details>
+    <summary>It works on one network but breaks on another</summary>
+    <p><strong>Cause:</strong> Some strict networks block the well-known DNS IP <code>1.1.1.1</code> specifically. Our advanced config already includes <strong>CDN-IP fallbacks</strong> (Cloudflare addresses shared with normal websites) that are almost impossible to block. If you set it up manually, make sure your config’s <code>server_names</code> includes <code>'cf-cdn'</code> (see the <a href="mac.html#manual">manual steps</a>).</p>
+    <p>If <em>encrypted DNS itself</em> is fully blocked (rare), no DNS method will work on that network and you’ll need a VPN.</p>
+  </details>
+
+  <details>
+    <summary>Is this a VPN? Will it slow me down?</summary>
+    <p><strong>No, and no.</strong> It only encrypts the tiny DNS lookups (“what’s the address for this name?”), not your actual traffic. Your connection speed is unchanged. It also doesn’t hide your browsing the way a VPN does — it just stops the network from tampering with or spying on your DNS.</p>
+  </details>
+
+  <details>
+    <summary>Does a VPN override this? Can I run both?</summary>
+    <p>Yes, they coexist. When a VPN is <strong>connected</strong>, it uses its own DNS (that’s normal). When it’s <strong>off</strong>, you’re back on this encrypted-DNS setup. The dnscrypt-proxy method causes no conflict because it isn’t a “VPN service.”</p>
+  </details>
+
+  <details>
+    <summary>How do I completely turn it off / undo everything?</summary>
+    <p><strong>Profile method:</strong> System Settings → General → VPN &amp; Device Management → select the profile → <strong>–</strong> (remove).</p>
+    <p><strong>dnscrypt-proxy method:</strong></p>
+    <pre><code>sudo brew services stop dnscrypt-proxy
+networksetup -setdnsservers "Wi-Fi" "Empty"
+brew uninstall dnscrypt-proxy</code></pre>
+    <p>Or run the <a href="mac.html#auto">uninstall script</a>.</p>
+  </details>
+
+  <details>
+    <summary>How can I verify it’s actually using encrypted DNS?</summary>
+    <p>Plain DNS to an outside server should <em>fail</em> on a locked-down network, while your normal lookups <em>succeed</em> — that gap means your lookups are going out encrypted, not on port 53:</p>
+    <pre><code>dig example.com +short          # should work (via your encrypted resolver)
+dig @8.8.8.8 example.com +short  # may time out on a network that blocks port 53</code></pre>
+    <p>You can also confirm the resolver is answering locally: <code>dig @127.0.0.1 example.com +short</code></p>
+  </details>
+
+  <hr>
+  <p class="muted">Still stuck? Re-run the diagnostic and compare against these cases — the combination of “port 53 blocked / DoH works / real IP reachable” tells you exactly which fix applies.</p>
+</main>
+
+<footer class="site"><div class="inner">
+  <p>Private DNS Guide — <a href="index.html">Home</a> · <a href="mac.html">Setup Guide</a></p>
+</div></footer>
+<script src="assets/script.js"></script>
+</body>
+</html>

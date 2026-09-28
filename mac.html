@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mac Setup · Private DNS Guide</title>
+<meta name="description" content="Set up encrypted DNS on macOS — a one-click profile, plus an advanced dnscrypt-proxy method for when a VPN blocks the profile.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="site">
+  <nav class="nav">
+    <a class="brand" href="index.html"><span class="dot"></span> Private DNS Guide</a>
+    <div class="links">
+      <a href="index.html">Home</a>
+      <a href="mac.html" class="active">Setup Guide</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+      <button class="themebtn" onclick="toggleTheme()" aria-label="Toggle dark mode">◐</button>
+    </div>
+  </nav>
+</header>
+
+<main>
+  <div class="kicker">macOS</div>
+  <h1>Set up encrypted DNS on Mac</h1>
+  <p class="lead">Two ways to do it. Try <strong>Method 1</strong> first — it takes 30 seconds. Only use <strong>Method 2</strong> if Method 1 fails (usually because a VPN app is in the way).</p>
+
+  <div class="callout info">
+    <div class="t">Which method?</div>
+    <p style="margin:.3em 0 0"><strong>Method 1 (Profile):</strong> easiest, no Terminal. <strong>Method 2 (dnscrypt-proxy):</strong> for Macs where the profile won’t install — for example if you have ExpressVPN or another VPN whose “VPN service” blocks it.</p>
+  </div>
+
+  <h2 id="method1">Method 1 — Install a DNS profile (easy)</h2>
+  <ol class="steps">
+    <li>
+      <h3>Download the profile</h3>
+      <p>This is a small Apple configuration file that switches your Mac to Cloudflare’s encrypted DNS.</p>
+      <a class="dl" href="assets/files/Private-DNS-Cloudflare.mobileconfig" download>⬇︎ Download Private-DNS-Cloudflare.mobileconfig</a>
+    </li>
+    <li>
+      <h3>Open it</h3>
+      <p>Double-click the downloaded file. macOS will say the profile was downloaded and needs review — that’s normal, it never auto-installs profiles.</p>
+    </li>
+    <li>
+      <h3>Install it in System Settings</h3>
+      <p>Go to <strong>System Settings → General → VPN &amp; Device Management</strong> (older macOS: <strong>Profiles</strong>). Click <strong>“Private DNS (Cloudflare DoH)”</strong> under <em>Downloaded</em>, then <strong>Install</strong> and enter your Mac password.</p>
+      <p class="muted">It will show <em>“Not Verified.”</em> That’s expected for a self-made profile — it just means Apple didn’t sign it, not that anything is wrong. You can open the file in TextEdit to see exactly what it does.</p>
+    </li>
+    <li>
+      <h3>Test it</h3>
+      <p>Open a site that wasn’t loading before. To double-check in Terminal:</p>
+      <pre><code>dig example.com +short</code></pre>
+      <p>If it returns an IP address, encrypted DNS is working. 🎉</p>
+    </li>
+  </ol>
+  <p class="muted">To remove later: System Settings → General → VPN &amp; Device Management → select the profile → <strong>–</strong> (remove).</p>
+
+  <div class="callout warn">
+    <div class="t">Profile install failed?</div>
+    <p style="margin:.3em 0 0">If you see <strong>“The ‘VPN Service’ payload could not be installed”</strong> or a red <strong>Error</strong>, a VPN app is blocking it. Use Method 2 below. More detail on the <a href="troubleshooting.html#vpn-service">Troubleshooting page</a>.</p>
+  </div>
+
+  <h2 id="method2">Method 2 — Local resolver with dnscrypt-proxy (advanced)</h2>
+  <p>This installs a tiny local program that answers DNS on your Mac and forwards every lookup encrypted over port 443. It doesn’t create a “VPN service,” so it works even when Method 1 is blocked.</p>
+
+  <h3>Requirements</h3>
+  <p>Homebrew (the Mac package manager). If you don’t have it, install it first from <a href="https://brew.sh" target="_blank" rel="noopener">brew.sh</a>.</p>
+
+  <h3 id="auto">Option A — Automatic script (recommended)</h3>
+  <ol class="steps">
+    <li>
+      <h3>Download the setup files</h3>
+      <p><a class="dl" href="assets/files/setup-dnscrypt-mac.sh" download>⬇︎ setup-dnscrypt-mac.sh</a></p>
+      <p><a href="assets/files/setup-dnscrypt-mac-UNINSTALL.sh" download>⬇︎ setup-dnscrypt-mac-UNINSTALL.sh</a> (to undo later)</p>
+    </li>
+    <li>
+      <h3>Run it</h3>
+      <p>Open <strong>Terminal</strong>, then run (adjust the path if the file is in Downloads):</p>
+      <pre><code>zsh ~/Downloads/setup-dnscrypt-mac.sh</code></pre>
+      <p>Enter your password when asked. The script installs dnscrypt-proxy, configures it (with Cloudflare + CDN fallbacks), starts it, and points your network at it.</p>
+    </li>
+    <li>
+      <h3>Test</h3>
+      <pre><code>dig example.com +short</code></pre>
+      <p>An IP means it’s working. To undo everything later: <code>zsh ~/Downloads/setup-dnscrypt-mac-UNINSTALL.sh</code></p>
+    </li>
+  </ol>
+
+  <h3 id="manual">Option B — Manual steps (if you prefer to see each command)</h3>
+  <ol class="steps">
+    <li><h3>Install dnscrypt-proxy</h3><pre><code>brew install dnscrypt-proxy</code></pre></li>
+    <li>
+      <h3>Write the config</h3>
+      <p>Open the config file:</p>
+      <pre><code>open -e $(brew --prefix)/etc/dnscrypt-proxy.toml</code></pre>
+      <p>Replace its contents with:</p>
+      <pre><code>listen_addresses = ['127.0.0.1:53']
+doh_servers = true
+dnscrypt_servers = false
+ipv6_servers = false
+require_dnssec = false
+require_nolog = false
+require_nofilter = false
+server_names = ['cf-1111', 'cf-cdn']
+netprobe_timeout = 0
+netprobe_address = '1.1.1.1:443'
+bootstrap_resolvers = ['1.1.1.1:443']
+ignore_system_dns = true
+cache = true
+
+[static]
+  [static.'cf-1111']
+  stamp = 'sdns://AgcAAAAAAAAABzEuMS4xLjEAEmRucy5jbG91ZGZsYXJlLmNvbQovZG5zLXF1ZXJ5'
+  [static.'cf-cdn']
+  stamp = 'sdns://AgAAAAAAAAAADjEwNC4xNi4yNDkuMjQ5ABJjbG91ZGZsYXJlLWRucy5jb20KL2Rucy1xdWVyeQ'</code></pre>
+    </li>
+    <li>
+      <h3>Start the service (needs your password)</h3>
+      <pre><code>sudo brew services start dnscrypt-proxy</code></pre>
+    </li>
+    <li>
+      <h3>Point your Mac at it</h3>
+      <p>For Wi-Fi (use your actual service name if different — check with <code>networksetup -listallnetworkservices</code>):</p>
+      <pre><code>networksetup -setdnsservers "Wi-Fi" 127.0.0.1</code></pre>
+    </li>
+    <li>
+      <h3>Verify</h3>
+      <pre><code>dig @127.0.0.1 example.com +short</code></pre>
+      <p>An IP address = success.</p>
+    </li>
+  </ol>
+
+  <div class="callout danger">
+    <div class="t">Important: they’re a pair</div>
+    <p style="margin:.3em 0 0">If you ever stop the resolver, also reset your DNS, or lookups will break (nothing would be listening). To turn everything off:</p>
+    <pre><code>sudo brew services stop dnscrypt-proxy && networksetup -setdnsservers "Wi-Fi" "Empty"</code></pre>
+    <p style="margin:.3em 0 0">To turn back on:</p>
+    <pre><code>sudo brew services start dnscrypt-proxy && networksetup -setdnsservers "Wi-Fi" 127.0.0.1</code></pre>
+  </div>
+
+  <p class="muted">Trouble? See <a href="troubleshooting.html">Troubleshooting</a> — it covers “0 network after changing DNS,” profile errors, and how to tell a DNS block from an IP block.</p>
+</main>
+
+<footer class="site"><div class="inner">
+  <p>Private DNS Guide — <a href="index.html">Home</a> · <a href="troubleshooting.html">Troubleshooting</a></p>
+</div></footer>
+<script src="assets/script.js"></script>
+</body>
+</html>

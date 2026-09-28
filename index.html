@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Private DNS Guide</title>
+<meta name="description" content="Step-by-step guides to set up encrypted DNS (DoH/DoT) on Mac, iPhone, Windows and Android — fix 'DNS won't resolve' errors and DNS-based blocks without a VPN.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="site">
+  <nav class="nav">
+    <a class="brand" href="index.html"><span class="dot"></span> Private DNS Guide</a>
+    <div class="links">
+      <a href="index.html" class="active">Home</a>
+      <a href="mac.html">Setup Guide</a>
+      <a href="troubleshooting.html">Troubleshooting</a>
+      <button class="themebtn" onclick="toggleTheme()" aria-label="Toggle dark mode">◐</button>
+    </div>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="kicker">macOS · Encrypted DNS · No VPN · No slowdown</div>
+    <h1>Set up private DNS on Mac and fix “DNS won’t resolve” errors</h1>
+    <p class="lead">A simple, step-by-step guide to switching your Mac to <strong>encrypted DNS (DNS-over-HTTPS)</strong>. It works even on networks that block normal DNS, and it doesn’t slow your connection down like a VPN.</p>
+  </section>
+
+  <div class="callout info">
+    <div class="t">🔎 Will this actually help me?</div>
+    <p style="margin:.3em 0 0">This fixes <strong>DNS-based problems</strong> — when a network blocks or hijacks DNS, or your custom DNS won’t connect. It <strong>cannot</strong> fix a site blocked at the firewall/IP level (that needs a VPN). Quick test: <em>if a site loads on a VPN but not otherwise, and normal websites still work, this will probably fix it.</em> See <a href="troubleshooting.html#dns-vs-ip">DNS block vs IP block</a>.</p>
+  </div>
+
+  <h2>Get started</h2>
+  <div class="grid">
+    <a class="card" href="mac.html"><div class="ico">⚡</div><h3>Easy: DNS profile</h3><p>One-click install, no Terminal. The fastest way for most Macs.</p></a>
+    <a class="card" href="mac.html#method2"><div class="ico">🛠️</div><h3>Advanced: dnscrypt-proxy</h3><p>For Macs where a VPN blocks the easy method.</p></a>
+  </div>
+
+  <h2>What is this, in plain English?</h2>
+  <p>Every time you open a website, your Mac asks a <strong>DNS server</strong> “what’s the address for this name?” Normally that question is sent <strong>unencrypted on port 53</strong>, so the network can see it, block it, or lie about the answer (for example, pointing a blocked site at a “blocked” page).</p>
+  <p><strong>Encrypted DNS</strong> (DNS-over-HTTPS / DNS-over-TLS) sends that same question <strong>encrypted over port 443</strong> — the same port normal websites use. The network can’t read it, block it, or tamper with it. Because it only encrypts the tiny lookups (not your whole connection), there’s <strong>no VPN-style slowdown</strong>.</p>
+
+  <h2>How it compares to a VPN</h2>
+  <table>
+    <tr><th></th><th>Encrypted DNS</th><th>VPN</th></tr>
+    <tr><td>Speed</td><td>Full speed</td><td>Often slower</td></tr>
+    <tr><td>Fixes DNS blocks/hijacking</td><td>✅ Yes</td><td>✅ Yes</td></tr>
+    <tr><td>Fixes firewall/IP blocks</td><td>❌ No</td><td>✅ Yes</td></tr>
+    <tr><td>Hides all your traffic</td><td>❌ No (DNS only)</td><td>✅ Yes</td></tr>
+    <tr><td>Setup</td><td>One-time, free</td><td>App + subscription</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <div class="t">⚠️ Please use this responsibly</div>
+    <p style="margin:.3em 0 0">Only change DNS on a network where you’re allowed to — like your home Wi-Fi or your own phone hotspot. On a <strong>school or workplace</strong> network, changing DNS may violate their acceptable-use policy. That’s your call to make.</p>
+  </div>
+
+  <p class="muted" style="margin-top:2em">Ready? Head to the <a href="mac.html">Setup Guide</a>. Stuck? The <a href="troubleshooting.html">Troubleshooting</a> page covers every common error.</p>
+</main>
+
+<footer class="site"><div class="inner">
+  <p>Private DNS Guide — a free, open guide. Uses <a href="https://1.1.1.1" target="_blank" rel="noopener">Cloudflare 1.1.1.1</a> by default; you can swap in any provider.</p>
+  <p class="muted">Not affiliated with Cloudflare, Apple, Microsoft, or Google. Provided as-is, for networks you’re permitted to configure.</p>
+</div></footer>
+<script src="assets/script.js"></script>
+</body>
+</html>
